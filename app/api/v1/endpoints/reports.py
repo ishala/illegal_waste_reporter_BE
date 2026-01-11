@@ -10,10 +10,8 @@ from app.schemas.report import (
     ReportCreate,
     ReportUpdate
 )
-from app.schemas.location import (
-    LocationCreate,
-    LocationUpdate
-)
+from app.schemas.user import User
+from app.core.security import get_current_active_admin, get_current_user
 
 router = APIRouter()
 
@@ -21,7 +19,8 @@ router = APIRouter()
 def read_reports(
     skip: int = 0,
     limit: int = 100,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_admin)
 ):
     """
     Ambil semua reports
@@ -32,7 +31,8 @@ def read_reports(
 @router.get("/{report_id}", response_model=Report)
 def read_report(
     report_id: UUID,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Ambil 1 report berdasarkan ID
@@ -49,41 +49,61 @@ def read_report(
                 status_code=status.HTTP_201_CREATED)
 def create_report(
     report: ReportCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Buat report baru
     """
-    # 1. Buat location dulu via CRUD
-    db_location = crud_location.create_location(
-        db=db,
-        location=report.location
-    )
-    
-    # 2. Untuk sementara, buat dummy user_id (nanti ganti dengan auth)
-    # TODO: Ganti dengan user_id dari JWT token
-    dummy_user_id = uuid4()  # Temporary solution
-    
-    # 3. Buat report
+    # Ambil user id
+    user_id = current_user.id
+
+    # Buat dan Ambil location id
+    req_location = report.location
+    db_location = None
+    if req_location is not None:
+        db_location = crud_location.create_location(
+            db=db, location=report.location
+        )
+
+    # Buat report
     db_report = crud_report.create_report(
         db=db,
         report=report,
-        user_id=dummy_user_id,
+        user_id=user_id,
         location_id=db_location.id,
     )
     
     return db_report
 
-@router.put("/{report_id}", response_model=Report)
+@router.patch("/{report_id}", response_model=Report)
 def update_report(
     report_id: UUID,
     report: ReportUpdate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Update report
     """
-    db_report = crud_report.update_report(db=db, report_id=report_id, report=report)
+    new_location_id = None
+    
+    # Jika ada update location, buat location BARU
+    if report.location is not None:
+        db_location = crud_location.create_location(
+            db=db,
+            location=report.location
+        )
+        new_location_id = db_location.id
+    
+    # Update report
+    db_report = crud_report.update_report(
+        db=db, 
+        report_id=report_id, 
+        report=report,
+        new_location_id=new_location_id
+    )
+    
     if db_report is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
