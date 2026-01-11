@@ -2,7 +2,7 @@ from pydantic import BaseModel, UUID4, Field
 from datetime import datetime
 from typing import Optional, List
 
-from app.schemas.location import Location, LocationCreate
+from app.schemas.location import Location, LocationCreate, LocationUpdate
 from app.schemas.media import Media
 from app.schemas.user import UserInDB
 
@@ -13,13 +13,13 @@ class ReportBase(BaseModel):
 
 
 class ReportCreate(ReportBase):
-    location: LocationCreate
+    location: LocationCreate = None
 
 
 class ReportUpdate(BaseModel):
     category: Optional[str] = None
     description: Optional[str] = None
-    # status_id removed
+    location: Optional[LocationUpdate] = None
 
 
 class ReportInDB(ReportBase):
