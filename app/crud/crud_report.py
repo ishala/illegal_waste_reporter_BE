@@ -4,7 +4,6 @@ from uuid import UUID
 
 from app.models.report import Report
 from app.schemas.report import ReportCreate, ReportUpdate
-from app.crud import crud_location
 
 # READ
 def get_report(db: Session, 
@@ -25,7 +24,8 @@ def create_report(
     db: Session,
     report: ReportCreate,
     user_id: UUID,
-    location_id: UUID
+    location_id: UUID,
+    report_status_id: UUID
 ) -> Report:
     # Buat satu report baru
     db_report = Report(
@@ -33,6 +33,7 @@ def create_report(
         location_id=location_id,
         category=report.category,
         description=report.description,
+        report_status_id=report_status_id
     )
     db.add(db_report)
     db.commit()
