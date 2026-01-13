@@ -4,14 +4,18 @@ from typing import List
 from uuid import UUID, uuid4
 
 from app.dependencies import get_db
-from app.crud import crud_report, crud_location
+from app.crud import crud_report, crud_location, crud_report_status
 from app.schemas.report import (
     Report,
     ReportCreate,
     ReportUpdate
 )
 from app.schemas.user import User
-from app.core.security import get_current_active_admin, get_current_user
+from app.core.security import (
+    get_current_user,
+    get_current_active_admin,
+    check_resource_ownership
+)
 
 router = APIRouter()
 
@@ -20,12 +24,15 @@ def read_reports(
     skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_admin)
+    valid_user: User = Depends(get_current_active_admin)
 ):
     """
     Ambil semua reports
     """
-    reports = crud_report.get_reports(db=db, skip=skip, limit=limit)
+    if valid_user is not None:
+        reports = crud_report.get_reports(db=db, skip=skip, limit=limit)
+    else:
+        return None
     return reports
 
 @router.get("/{report_id}", response_model=Report)
@@ -43,6 +50,12 @@ def read_report(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Report not found"
         )
+
+    check_resource_ownership(
+        resource_user_id=db_report.user_id,
+        current_user=current_user,
+        resource_name="report"
+    )
     return db_report
 
 @router.post("/", response_model=Report, 
@@ -66,12 +79,18 @@ def create_report(
             db=db, location=report.location
         )
 
+    # Cek atau ambil report status id
+    report_status_id = report.report_status_id
+    if report_status_id is None:
+        report_status_id = crud_report_status.get_pending_status(db=db)
+
     # Buat report
     db_report = crud_report.create_report(
         db=db,
         report=report,
         user_id=user_id,
         location_id=db_location.id,
+        report_status_id=report_status_id
     )
     
     return db_report
@@ -88,6 +107,19 @@ def update_report(
     """
     new_location_id = None
     
+    db_report = crud_report.get_report(db=db, report_id=report_id)
+    if db_report is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Report not found"
+        )
+
+    check_resource_ownership(
+        resource_user_id=db_report.user_id,
+        current_user=current_user,
+        resource_name="report"
+    )
+
     # Jika ada update location, buat location BARU
     if report.location is not None:
         db_location = crud_location.create_location(
@@ -114,11 +146,26 @@ def update_report(
 @router.delete("/{report_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_report(
     report_id: UUID,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Hapus report
     """
+    db_report = crud_report.get_report(db=db, report_id=report_id)
+    if db_report is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Report not found"
+        )
+    
+    # ✅ Validasi ownership
+    check_resource_ownership(
+        resource_user_id=db_report.user_id,
+        current_user=current_user,
+        resource_name="report"
+    )
+
     success = crud_report.delete_report(db=db, report_id=report_id)
     if not success:
         raise HTTPException(
