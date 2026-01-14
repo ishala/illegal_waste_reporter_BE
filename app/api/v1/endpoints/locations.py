@@ -7,6 +7,7 @@ from app.dependencies import get_db
 from app.crud import crud_location
 from app.schemas.location import (
     Location,
+    LocationNearby,
     LocationCreate,
     LocationUpdate
 )
@@ -37,6 +38,19 @@ def create_location(
 ):
     db_location = crud_location.create_location(db=db, location=location)
     return db_location
+
+@router.post("/nearby", response_model=List[Location])
+def find_nearby_locations(
+    search: LocationNearby,
+    db: Session = Depends(get_db)
+):
+    locations = crud_location.get_nearby_locations(
+        db=db,
+        latitude=search.latitude,
+        longitude=search.longitude,
+        radius_km=search.radius_km
+    )
+    return locations
 
 @router.put("/{location_id}", response_model=Location)
 def update_location(
