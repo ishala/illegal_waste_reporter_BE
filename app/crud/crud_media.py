@@ -53,8 +53,8 @@ class MinioService:
             file.file.seek(0)
             self.client.put_object(
                 settings.MINIO_BUCKET_NAME,
-                object_name=obj_name,
-                file=file.file,
+                obj_name,
+                file.file,
                 length=-1,
                 part_size=10*1024*1024, # 10MB
                 content_type=content_type
