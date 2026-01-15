@@ -62,15 +62,15 @@ def read_report(
             detail="Report not found"
         )
 
+    print(db_report)
     check_resource_ownership(
         resource_user_id=db_report.user_id,
         current_user=current_user,
         resource_name="report"
     )
-    
-    for report in db_report.media:
-            for media in report.media:
-                media.url = minio_service.get_file_url(media.media_url, expires=7200)
+
+    for media in db_report.media:
+            media.url = minio_service.get_file_url(media.media_url, expires=7200)
     return db_report
 
 @router.post("/", response_model=Report, 
@@ -81,7 +81,7 @@ async def create_report(
     latitude: float = Form(...),
     longitude: float = Form(...),
     address: Optional[str] = Form(None),
-    files: Optional[List[UploadFile]] = File(None),
+    files: List[UploadFile] = File(default=[]),
     report_status_id: Optional[str] = Form(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -129,7 +129,7 @@ async def create_report(
         report_status_id=status_id
     )
     
-    if files and len(files) > 0:
+    if files:
         for file in files:
             # Skip jika file kosong
             if file.filename == '':
