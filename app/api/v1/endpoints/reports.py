@@ -1,21 +1,28 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile, Form
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 from uuid import UUID, uuid4
 
 from app.dependencies import get_db
-from app.crud import crud_report, crud_location, crud_report_status
+from app.crud import (
+    crud_report, 
+    crud_location, 
+    crud_report_status,
+    crud_media)
 from app.schemas.report import (
     Report,
     ReportCreate,
     ReportUpdate
 )
+from app.schemas.location import LocationCreate
 from app.schemas.user import User
 from app.core.security import (
     get_current_user,
     get_current_active_admin,
     check_resource_ownership
 )
+
+from app.crud.crud_media import minio_service
 
 router = APIRouter()
 
@@ -31,9 +38,13 @@ def read_reports(
     """
     if valid_user is not None:
         reports = crud_report.get_reports(db=db, skip=skip, limit=limit)
+        
+        for report in reports:
+            for media in report.media:
+                media.url = minio_service.get_file_url(media.media_url, expires=7200)
+        return reports
     else:
         return None
-    return reports
 
 @router.get("/{report_id}", response_model=Report)
 def read_report(
@@ -56,12 +67,22 @@ def read_report(
         current_user=current_user,
         resource_name="report"
     )
+    
+    for report in db_report.media:
+            for media in report.media:
+                media.url = minio_service.get_file_url(media.media_url, expires=7200)
     return db_report
 
 @router.post("/", response_model=Report, 
                 status_code=status.HTTP_201_CREATED)
-def create_report(
-    report: ReportCreate,
+async def create_report(
+    category: str = Form(...),
+    description: Optional[str] = Form(None),
+    latitude: float = Form(...),
+    longitude: float = Form(...),
+    address: Optional[str] = Form(None),
+    files: Optional[List[UploadFile]] = File(None),
+    report_status_id: Optional[str] = Form(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -72,27 +93,63 @@ def create_report(
     user_id = current_user.id
 
     # Buat dan Ambil location id
-    req_location = report.location
-    db_location = None
-    if req_location is not None:
-        db_location = crud_location.create_location(
-            db=db, location=report.location
-        )
+    location_data = LocationCreate(
+        latitude=latitude,
+        longitude=longitude,
+        address=address
+    )
+    db_location = crud_location.create_location(db=db, location=location_data)
 
     # Cek atau ambil report status id
-    report_status_id = report.report_status_id
-    if report_status_id is None:
-        report_status_id = crud_report_status.get_pending_status(db=db)
+    status_id = None
+    if report_status_id:
+        try:
+            status_id = UUID(report_status_id)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid report_status_id format"
+            )
+    else:
+        status_id = crud_report_status.get_pending_status(db=db)
 
     # Buat report
-    db_report = crud_report.create_report(
-        db=db,
-        report=report,
-        user_id=user_id,
-        location_id=db_location.id,
-        report_status_id=report_status_id
+    report_data = ReportCreate(
+        category=category,
+        description=description,
+        location=location_data,
+        report_status_id=status_id
     )
     
+    db_report = crud_report.create_report(
+        db=db,
+        report=report_data,
+        user_id=user_id,
+        location_id=db_location.id,
+        report_status_id=status_id
+    )
+    
+    if files and len(files) > 0:
+        for file in files:
+            # Skip jika file kosong
+            if file.filename == '':
+                continue
+                
+            # Upload ke MinIO
+            object_name, media_type = minio_service.upload_file(
+                file=file,
+                folder=f"report_media/{db_report.id}"
+            )
+            
+            # Simpan metadata ke database
+            crud_media.create_media(
+                db=db,
+                report_id=db_report.id,
+                media_url=object_name,
+                media_type=media_type
+            )
+    
+    db.refresh(db_report)
     return db_report
 
 @router.patch("/{report_id}", response_model=Report)
@@ -165,6 +222,9 @@ def delete_report(
         current_user=current_user,
         resource_name="report"
     )
+    
+    for media in db_report.media:
+        minio_service.delete_file(media.url)
 
     success = crud_report.delete_report(db=db, report_id=report_id)
     if not success:
