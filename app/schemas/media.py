@@ -1,10 +1,9 @@
-from pydantic import BaseModel, UUID4
+from pydantic import BaseModel, UUID4, field_serializer
 from datetime import datetime
 from typing import Optional
 
 
 class MediaBase(BaseModel):
-    media_url: str
     media_type: str  # image, video
 
 
@@ -20,6 +19,7 @@ class MediaUpdate(BaseModel):
 class MediaInDB(MediaBase):
     id: UUID4
     report_id: UUID4
+    media_url: str
     created_at: datetime
 
     class Config:
@@ -27,4 +27,15 @@ class MediaInDB(MediaBase):
 
 
 class Media(MediaInDB):
-    pass
+    """
+    Media response dengan URL yang bisa langsung dipakai
+    URL akan di-generate otomatis saat serialization
+    """
+    url: Optional[str] = None
+    
+    @classmethod
+    def from_orm_with_url(cls, db_media, url: str):
+        """Helper untuk create instance dengan URL"""
+        media = cls.model_validate(db_media)
+        media.url = url
+        return media
