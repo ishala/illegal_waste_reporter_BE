@@ -102,5 +102,23 @@ def create_verification(
         )
     return db_verification
 
-# @router.patch("/{verification_id}", response_model=Verification)
-# def update_verification
+@router.delete("/{verification_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_verification(
+    verification_id: UUID,
+    db: Session = Depends(get_db),
+    valid_user: Session = Depends(get_current_active_admin)
+):
+    if valid_user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not allowed to access"
+        )
+
+    success = crud_verification.delete_verification(
+        db=db, verification_id=verification_id
+    )
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Verification not found"
+        )
