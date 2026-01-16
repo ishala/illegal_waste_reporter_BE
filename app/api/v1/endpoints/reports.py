@@ -62,7 +62,6 @@ def read_report(
             detail="Report not found"
         )
 
-    print(db_report)
     check_resource_ownership(
         resource_user_id=db_report.user_id,
         current_user=current_user,
@@ -111,7 +110,7 @@ async def create_report(
                 detail="Invalid report_status_id format"
             )
     else:
-        status_id = crud_report_status.get_pending_status(db=db)
+        status_id = crud_report_status.get_status_id_by_name(db=db)
 
     # Buat report
     report_data = ReportCreate(
