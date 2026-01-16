@@ -29,6 +29,7 @@ class ReportInDB(ReportBase):
     id: UUID4
     user_id: UUID4
     location_id: UUID4
+    report_status_id: UUID4
     created_at: datetime
 
     class Config:
@@ -36,8 +37,8 @@ class ReportInDB(ReportBase):
 
 
 class Report(ReportInDB):
-    location: Optional[Location] = None
-    report_status: Optional[ReportStatus] = None 
+    # location: Optional[Location] = None
+    # report_status: Optional[ReportStatus] = None 
     media: List[Media] = Field(default_factory=list)
 
 # Admin
