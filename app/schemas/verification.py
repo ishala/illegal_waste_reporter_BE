@@ -9,6 +9,7 @@ class VerificationBase(BaseModel):
 
 class VerificationCreate(VerificationBase):
     report_id: UUID4
+    report_status: Optional[str] = "Pending"
 
 
 class VerificationUpdate(BaseModel):
