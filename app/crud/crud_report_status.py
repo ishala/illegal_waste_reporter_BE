@@ -13,7 +13,7 @@ def get_report_status(db: Session,
 def get_report_statuses(db: Session) -> List[ReportStatus]:
     return db.query(ReportStatus).all()
 
-def get_pending_status(db: Session, name: str = 'Pending'):
+def get_status_id_by_name(db: Session, name: str = 'Pending'):
     return db.query(ReportStatus).filter(ReportStatus.name == name).first().id
 
 # CREATE
