@@ -16,5 +16,11 @@ class User(Base):
     role = Column(String, nullable=False, default="user")
     created_at = Column(DateTime, default=datetime.utcnow)
     
-    reports = relationship("Report", back_populates="user")
-    verifications = relationship("Verification", back_populates="admin")
+    reports = relationship(
+        "Report", 
+        back_populates="user",
+        cascade="all, delete-orphan")
+    verifications = relationship(
+        "Verification", 
+        back_populates="admin",
+        cascade="all, delete-orphan")
