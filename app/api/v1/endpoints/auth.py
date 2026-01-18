@@ -1,37 +1,59 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from datetime import timedelta
 from typing import Annotated
 
 from app.dependencies import get_db, Hasher
 from app.crud import crud_user
-from app.schemas.user import User, UserCreate, Token, TokenData
+from app.schemas.user import User, UserCreate
 from app.core.config import settings
-from app.core.security import create_access_token, get_current_user
+from app.core.security import create_access_token
+from app.api.status_code import (
+    APIResponse, 
+    SuccessMessage, 
+    ErrorMessage,
+    HTTPStatus
+) 
 
 router = APIRouter()
 hasher = Hasher()
 
-@router.post("/register", response_model=User, status_code=status.HTTP_201_CREATED)
+@router.post("/register", 
+             response_model=APIResponse, 
+             status_code=HTTPStatus.CREATED)
 def register(
     user: UserCreate,
     db: Session = Depends(get_db)
 ):
     exist_user = crud_user.get_user_by_email(db=db, email=user.email)
     if exist_user:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email are registered"
+        error = ErrorMessage.EMAIL_EXISTS
+        ErrorMessage.raise_exception(
+            error_type=error,
+            details="Please insert the correct registered account"
         )
     
     hash_pw = hasher.get_password_hash(user.password)
     user.password = hash_pw
     
     db_user = crud_user.create_user(db=db, user=user)
-    return db_user
+    if db_user is None:
+        error = ErrorMessage.USER_CREATION_FAILED
+        ErrorMessage.raise_exception(
+            error_type=error
+        )
+    user_data = User.model_validate(db_user)
 
-@router.post("/login", response_model=Token)
+    return APIResponse(
+        success=True,
+        message=SuccessMessage.USER_REGISTERED,
+        data=user_data.model_dump()
+    )
+
+@router.post("/login", 
+             response_model=APIResponse,
+             status_code=HTTPStatus.OK)
 def login(
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
     db: Session = Depends(get_db)
@@ -43,20 +65,11 @@ def login(
     """
     exist_user = crud_user.get_user_by_email(db=db, email=form_data.username)
     if not exist_user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email or password",
-            headers={"WWW-Authenticate": "Bearer"}
+        error = ErrorMessage.INVALID_CREDENTIALS
+        ErrorMessage.raise_exception(
+            error_type=error
         )
-
     verified_pw = hasher.verify_password(form_data.password, exist_user.password)
-    
-    if not exist_user or not verified_pw:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email or password",
-            headers={"WWW-Authenticate": "Bearer"}
-        )
     
     access_token_expires = timedelta(settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
@@ -64,7 +77,11 @@ def login(
         expires_delta=access_token_expires
     )
     
-    return {
-        "access_token": access_token,
-        "token_type": "bearer"
-    }
+    return APIResponse(
+        success=True,
+        message=SuccessMessage.LOGIN_SUCCESS,
+        data={
+            "access_token": access_token,
+            "token_type": "bearer"
+        }
+    )
