@@ -31,10 +31,14 @@ class SuccessMessage:
     # Verification
     VERIFICATION_CREATED = "Verification created successfully"
     VERIFICATION_UPDATED = "Verification updated successfully"
+    VERIFICATION_RETRIEVED = "Verification retrieved successfully"
+    VERIFICATION_DELETED = "Verification deleted successfully"
     
     # Location
     LOCATION_CREATED = "Location created successfully"
     LOCATION_UPDATED = "Location updated successfully"
+    LOCATION_RETRIEVED = "Location retrieved successfully"
+    LOCATION_DELETED = "Location deleted successfully"
     
     # Media
     MEDIA_UPLOADED = "Media uploaded successfully"
