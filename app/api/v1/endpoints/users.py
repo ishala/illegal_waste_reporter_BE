@@ -1,13 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-from typing import List
 from uuid import UUID
 
 from app.dependencies import get_db, Hasher
 from app.crud import crud_user
 from app.schemas.user import (
     User,
-    UserCreate,
     UserUpdate
 )
 from app.core.security import (
