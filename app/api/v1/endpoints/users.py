@@ -150,8 +150,7 @@ def update_user(
     )
 
 @router.delete("/{user_id}", 
-               status_code=HTTPStatus.OK,
-               response_model=APIResponse)
+               status_code=HTTPStatus.NO_CONTENT)
 def delete_user(
     user_id: UUID,
     db: Session = Depends(get_db),
@@ -170,9 +169,9 @@ def delete_user(
             error_type=error,
             details="User not found"
         )
-    
-    return APIResponse(
-        success=True,
-        message=SuccessMessage.USER_DELETED,
-        data={"user_id": str(user_id)}
-    )
+    else:
+        APIResponse(
+            success=True,
+            message=SuccessMessage.USER_DELETED,
+            data={"user_id": str(user_id)}
+        )
