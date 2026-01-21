@@ -146,7 +146,7 @@ def update_location(
         data=location_data.model_dump()
     )
 
-@router.delete("/{location_id}", response_model=APIResponse, 
+@router.delete("/{location_id}", 
                status_code=HTTPStatus.NO_CONTENT)
 def delete_location(
     location_id: UUID,
