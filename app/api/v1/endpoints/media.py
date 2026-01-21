@@ -131,8 +131,7 @@ def get_media_url(
     )
 
 @router.delete("/{report_id}/media/{media_id}", 
-               status_code=HTTPStatus.NO_CONTENT,
-               response_model=APIResponse)
+               status_code=HTTPStatus.NO_CONTENT)
 def delete_report_media(
     report_id: UUID,
     media_id: UUID,
