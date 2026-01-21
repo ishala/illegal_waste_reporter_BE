@@ -146,7 +146,7 @@ def create_verification(
         data=verif_data.model_dump()
     )
 
-@router.delete("/{verification_id}", response_model=APIResponse, 
+@router.delete("/{verification_id}", 
                status_code=HTTPStatus.NO_CONTENT)
 def delete_verification(
     verification_id: UUID,
