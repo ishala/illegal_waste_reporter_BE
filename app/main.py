@@ -6,7 +6,8 @@ from app.api.v1.router import api_router
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
-    openapi_url=f"{settings.API_V1_PREFIX}/openapi.json"
+    openapi_url=f"{settings.API_V1_PREFIX}/openapi.json",
+    swagger_ui_parameters={"syntaxHighlight": False}
 )
 
 # CORS middleware
