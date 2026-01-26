@@ -5,11 +5,13 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from uuid import UUID
+import secrets
 
 from app.core.config import settings
-from app.crud import crud_user
+from app.crud import crud_user, crud_session
 from app.dependencies import get_db
 from app.schemas.user import TokenData, User
+from app.schemas.session import SessionCreate
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_PREFIX}/auth/login")
 
@@ -29,6 +31,34 @@ def create_access_token(
     encoded_jwt = jwt.encode(to_encode, settings.JWT_SECRET_KEY, algorithm=settings.ALGORITHM)
     
     return encoded_jwt
+
+def create_refresh_token() -> str:
+    """Generate secure random refresh token"""
+    return secrets.token_urlsafe(32)
+
+def create_session(
+    db: Session,
+    user_id: UUID,
+    device_name: Optional[str] = None,
+    expires_delta: Optional[timedelta] = None
+) -> str:
+    """Create new session and return refresh token"""
+    refresh_token = create_refresh_token()
+    
+    if expires_delta:
+        expires_at = datetime.utcnow() + expires_delta
+    else:
+        expires_at = datetime.utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+    
+    session_data = SessionCreate(
+        user_id=user_id,
+        refresh_token=refresh_token,
+        expires_at=expires_at,
+        device_name=device_name
+    )
+    
+    crud_session.create_session(db=db, session=session_data)
+    return refresh_token
 
 def verify_token(token: str, credentials_exception):
     # Verifikasi JWT Token dan extract payload
